@@ -53,8 +53,8 @@ jobs:
       # 6. Mise à jour dynamique de l'image et déploiement
       - name: Deploy Manifests to Kubernetes
         run: |
-          # Modifie directement le fichier local avec le tag unique SHA du commit
-          sed -i "s|image: ${{ env.DOCKER_IMAGE_NAME }}:.*|image: ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}|g" k8s/deployment-vote.yaml
+          # Modifie l'image dans n'importe quel fichier YAML du dossier k8s/
+          sed -i "s|image: ${{ env.DOCKER_IMAGE_NAME }}:.*|image: ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}|g" k8s/*.yaml k8s/*.yml || true
           
           # Applique tous les fichiers de configuration du dossier k8s/
           kubectl apply -f k8s/
