@@ -53,14 +53,15 @@ jobs:
       # 6. Mise à jour dynamique de l'image et déploiement
       # 6. Mise à jour dynamique de l'image et déploiement
       # 6. Mise à jour dynamique de l'image et déploiement
+      # 6. Mise à jour dynamique de l'image et déploiement
       - name: Deploy Manifests to Kubernetes
         run: |
-          # Modifie l'image dans n'importe quel fichier YAML du dossier k8s/
-          sed -i "s|image: ${{ env.DOCKER_IMAGE_NAME }}:.*|image: ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}|g" k8s/*.yaml k8s/*.yml || true
+          # Modifie l'image uniquement dans les fichiers .yaml existants
+          sed -i "s|image: ${{ env.DOCKER_IMAGE_NAME }}:.*|image: ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}|g" k8s/*.yaml
           
-          # Applique uniquement les fichiers existants se terminant par .yaml ou .yml
-          for file in k8s/*; do
-            if [[ "$file" == *.yaml || "$file" == *.yml ]]; then
+          # Applique les fichiers en ignorant les configs EKS et les JSON AWS
+          for file in k8s/*.yaml; do
+            if [[ -f "$file" && "$file" != *"eks-us-east.yaml"* ]]; then
               echo "Applying resource: $file"
               kubectl apply -f "$file"
             fi
