@@ -1,0 +1,30 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowEKSPodIdentity",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "pods.eks.amazonaws.com"
+      },
+      "Action": [
+        "sts:AssumeRole",
+        "sts:TagSession"
+      ]
+    },
+    {
+      "Sid": "AllowEKSOIDC",
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::686699774218:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/ALAIN_VOTING_APP_EKS_OIDC_ID"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringLike": {
+          "oidc.eks.us-east-1.amazonaws.com/id/ALAIN_VOTING_APP_EKS_OIDC_ID:sub": "system:serviceaccount:*",
+          "oidc.eks.us-east-1.amazonaws.com/id/ALAIN_VOTING_APP_EKS_OIDC_ID:aud": "sts.amazonaws.com"
+        }
+      }
+    }
+  ]
+}

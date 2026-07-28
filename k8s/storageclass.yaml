@@ -1,0 +1,9 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: alain-ebs-sc
+provisioner: ebs.csi.aws.com # Fait le lien avec l'addon qu'on a activé ensemble
+volumeBindingMode: WaitForFirstConsumer # Super important sur AWS ! Attend qu'un pod soit planifié pour créer le disque dans la BONNE zone de disponibilité (AZ)
+allowVolumeExpansion: true # Te permettra de tester le redimensionnement de disque à chaud plus tard
+parameters:
+  type: gp3

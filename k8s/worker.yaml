@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  labels:
+    app: demo-voting-app
+    tier: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker
+      tier: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+        tier: worker
+    spec:
+      imagePullSecrets:
+        - name: dockersecrets
+      containers:
+        - name: worker
+          image: mulema/worker:latest
+          
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "250m"
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+              
+          # Pas besoin de variables d'environnement complexes ici : 
+          # L'image officielle cherche d'elle-même les hôtes nommés "redis" et "db" par défaut.

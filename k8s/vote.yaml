@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: vote
+  labels:
+    app: demo-voting-app
+    tier: vote
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 80
+  selector:
+    app: vote
+    tier: vote
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vote
+  labels:
+    app: demo-voting-app
+    tier: vote
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vote
+      tier: vote
+  template:
+    metadata:
+      labels:
+        app: vote
+        tier: vote
+    spec:
+      imagePullSecrets:
+        - name: dockersecrets
+      containers:
+        - name: vote
+          image: mulema/vote
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "250m"
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          ports:
+            - containerPort: 80
+              name: vote
+          env:
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_HOST
+              value: "redis"

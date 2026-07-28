@@ -1,0 +1,64 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  labels:
+    app: demo-voting-app
+    tier: db
+spec:
+  ports:
+    - port: 5432
+      targetPort: 5432
+  selector:
+    app: postgres
+    tier: db
+  clusterIP: None # Un Service "Headless" est recommandé pour les StatefulSets
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  labels:
+    app: demo-voting-app
+    tier: db
+spec:
+  serviceName: "db"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+      tier: db
+  template:
+    metadata:
+      labels:
+        app: postgres
+        tier: db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          env:
+            - name: POSTGRES_USER
+              value: "postgres"
+            # Dans un vrai projet on utiliserait un Secret, mais pour le lab on reste lisible
+            - name: POSTGRES_PASSWORD
+              value: "postgres"
+            - name: POSTGRES_DB
+              value: "postgres"
+          ports:
+            - containerPort: 5432
+              name: postgres
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+  
+  # C'est ici que la magie du stockage dynamique opère :
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: "alain-ebs-sc" # On appelle la StorageClass créée juste avant
+        resources:
+          requests:
+            storage: 5Gi # 5 Go suffisent largement pour notre lab
