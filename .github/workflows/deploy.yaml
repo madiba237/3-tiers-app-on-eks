@@ -1,96 +1,43 @@
-name: EKS Multi-Services CI/CD
+name: CI/CD Pipeline to AWS EKS
 
+# Déclencheur : Uniquement lors d'un push sur la branche principale
 on:
   push:
     branches:
       - main
-    # Le pipeline ne se déclenche que si du code change dans les apps ou les manifests
-    paths:
-      - 'vote/**'
-      - 'result/**'
-      - 'worker/**'
-      - 'k8s/**'
 
 env:
-  AWS_REGION: us-east-1
-  EKS_CLUSTER_NAME: ton-cluster-eks # À remplacer par le vrai nom de ton cluster
-  DOCKERHUB_REPO: mulema              # Ton nom d'utilisateur Docker Hub
+  AWS_REGION: us-east-1                  # Modifiez si votre cluster est dans une autre région
+  EKS_CLUSTER_NAME: votre-cluster-eks    # METTEZ LE VRAI NOM DE VOTRE CLUSTER EKS
+  DOCKER_IMAGE_NAME: mulema/vote         # Votre repo Docker Hub
 
 jobs:
-  # --- JOB 1 : DETECTION DES CHANGEMENTS ---
-  changes:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    outputs:
-      vote: ${{ steps.filter.outputs.vote }}
-      result: ${{ steps.filter.outputs.result }}
-      worker: ${{ steps.filter.outputs.worker }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            vote: ['vote/**']
-            result: ['result/**']
-            worker: ['worker/**']
 
-  # --- JOB 2 : BUILD & PUSH (En parallèle pour aller vite) ----
-  build-and-push:
-    needs: changes
-    runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      # 1. Récupération du code du dépôt
+      - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v4
+      # 2. Connexion au Docker Hub
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Build VOTE uniquement s'il y a eu une modif dans le dossier /vote
-      - name: Build & Push Vote App
-        if: needs.changes.outputs.vote == 'true'
+      # 3. Build de la nouvelle image et push sur Docker Hub
+      - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
-          context: ./vote
+          context: ./vote  # Le dossier où se trouve le Dockerfile de l'application vote
           push: true
           tags: |
-            ${{ env.DOCKERHUB_REPO }}/vote:${{ github.sha }}
-            ${{ env.DOCKERHUB_REPO }}/vote:latest
+            ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.DOCKER_IMAGE_NAME }}:latest
 
-      # Build RESULT uniquement s'il y a eu une modif dans le dossier /result
-      - name: Build & Push Result App
-        if: needs.changes.outputs.result == 'true'
-        uses: docker/build-push-action@v5
-        with:
-          context: ./result
-          push: true
-          tags: |
-            ${{ env.DOCKERHUB_REPO }}/result:${{ github.sha }}
-            ${{ env.DOCKERHUB_REPO }}/result:latest
-
-      # Build WORKER uniquement s'il y a eu une modif dans le dossier /worker
-      - name: Build & Push Worker App
-        if: needs.changes.outputs.worker == 'true'
-        uses: docker/build-push-action@v5
-        with:
-          context: ./worker
-          push: true
-          tags: |
-            ${{ env.DOCKERHUB_REPO }}/worker:${{ github.sha }}
-            ${{ env.DOCKERHUB_REPO }}/worker:latest
-
-  # --- JOB 3 : DEPLOIEMENT AUTOMATIQUE SUR EKS ---
-  deploy-to-eks:
-    needs: [changes, build-and-push]
-    runs-on: ubuntu-latest
-    # On s'assure que le déploiement tourne si le build a réussi, ou s'il n'y avait que les manifests k8s à mettre à jour
-    if: always() && (needs.build-and-push.result == 'success' || contains(github.event.head_commit.message, 'k8s'))
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
+      # 4. Connexion à AWS avec les credentials sécurisés
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -98,27 +45,16 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # Correction apportée ici (suppression de la ligne parasite et ajout d'un vrai commentaire)
-      # Connect to EKS
-      - name: Update Kubeconfig
+      # 5. Configuration de Kubeconfig pour donner l'accès EKS à Kubectl
+      - name: Connect to EKS Cluster
         run: |
           aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
 
-      # Mise à jour des images avec le tag unique SHA si elles ont été rebuildées
-      - name: Update Kubernetes Images dynamically
+      # 6. Mise à jour dynamique de l'image et déploiement
+      - name: Deploy Manifests to Kubernetes
         run: |
-          cd k8s
-          if [ "${{ needs.changes.outputs.vote }}" = "true" ]; then
-            kubectl set image deployment/vote vote=${{ env.DOCKERHUB_REPO }}/vote:${{ github.sha }} --local -o yaml > temp.yaml && mv temp.yaml deployment-vote.yaml || true
-          fi
-          if [ "${{ needs.changes.outputs.result }}" = "true" ]; then
-            kubectl set image deployment/result result=${{ env.DOCKERHUB_REPO }}/result:${{ github.sha }} --local -o yaml > temp.yaml && mv temp.yaml deployment-result.yaml || true
-          fi
-          if [ "${{ needs.changes.outputs.worker }}" = "true" ]; then
-            kubectl set image deployment/worker worker=${{ env.DOCKERHUB_REPO }}/worker:${{ github.sha }} --local -o yaml > temp.yaml && mv temp.yaml deployment-worker.yaml || true
-          fi
-
-      # Application globale de l'état (Redis, Postgres, Ingress, Deployments mis à jour)
-      - name: Apply Manifests
-        run: |
+          # Modifie à la volée le déploiement en cours avec la nouvelle image associée au SHA du commit
+          kubectl set image deployment/vote vote=${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }} --local -o yaml
+          
+          # Applique tous les fichiers de configuration du dossier k8s/ (Services, Deployments, etc.)
           kubectl apply -f k8s/
