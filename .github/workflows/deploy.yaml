@@ -98,7 +98,8 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-       wilderness: Connect to EKS
+      # Correction apportée ici (suppression de la ligne parasite et ajout d'un vrai commentaire)
+      # Connect to EKS
       - name: Update Kubeconfig
         run: |
           aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
@@ -106,14 +107,15 @@ jobs:
       # Mise à jour des images avec le tag unique SHA si elles ont été rebuildées
       - name: Update Kubernetes Images dynamically
         run: |
+          cd k8s
           if [ "${{ needs.changes.outputs.vote }}" = "true" ]; then
-            cd k8s && kubectl set image deployment/vote vote=${{ env.DOCKERHUB_REPO }}/vote:${{ github.sha }} --local -o yaml > temp.yaml && mv temp.yaml deployment-vote.yaml || true
+            kubectl set image deployment/vote vote=${{ env.DOCKERHUB_REPO }}/vote:${{ github.sha }} --local -o yaml > temp.yaml && mv temp.yaml deployment-vote.yaml || true
           fi
           if [ "${{ needs.changes.outputs.result }}" = "true" ]; then
-            cd k8s && kubectl set image deployment/result result=${{ env.DOCKERHUB_REPO }}/result:${{ github.sha }} --local -o yaml > temp.yaml && mv temp.yaml deployment-result.yaml || true
+            kubectl set image deployment/result result=${{ env.DOCKERHUB_REPO }}/result:${{ github.sha }} --local -o yaml > temp.yaml && mv temp.yaml deployment-result.yaml || true
           fi
           if [ "${{ needs.changes.outputs.worker }}" = "true" ]; then
-            cd k8s && kubectl set image deployment/worker worker=${{ env.DOCKERHUB_REPO }}/worker:${{ github.sha }} --local -o yaml > temp.yaml && mv temp.yaml deployment-worker.yaml || true
+            kubectl set image deployment/worker worker=${{ env.DOCKERHUB_REPO }}/worker:${{ github.sha }} --local -o yaml > temp.yaml && mv temp.yaml deployment-worker.yaml || true
           fi
 
       # Application globale de l'état (Redis, Postgres, Ingress, Deployments mis à jour)
