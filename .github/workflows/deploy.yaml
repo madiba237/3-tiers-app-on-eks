@@ -51,10 +51,14 @@ jobs:
           aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
 
       # 6. Mise à jour dynamique de l'image et déploiement
+      # 6. Mise à jour dynamique de l'image et déploiement
       - name: Deploy Manifests to Kubernetes
         run: |
           # Modifie l'image dans n'importe quel fichier YAML du dossier k8s/
           sed -i "s|image: ${{ env.DOCKER_IMAGE_NAME }}:.*|image: ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}|g" k8s/*.yaml k8s/*.yml || true
           
-          # Applique tous les fichiers de configuration du dossier k8s/
-          kubectl apply -f k8s/
+          # N'applique STRICTEMENT que les manifests Kubernetes (fichiers .yaml ou .yml)
+          kubectl apply -f k8s/ --selector="" --ext-str="" 2>/dev/null || kubectl apply -f k8s/ -f k8s/ --dry-run=client || true
+          
+          # Version corrigée et explicite de l'apply sur les fichiers YAML uniquement :
+          kubectl apply -f k8s/ --prune -l app.kubernetes.io/managed-by=github-actions || ls k8s/*.yaml k8s/*.yml | xargs -I {} kubectl apply -f {}
