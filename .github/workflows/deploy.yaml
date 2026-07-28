@@ -8,7 +8,7 @@ on:
 
 env:
   AWS_REGION: us-east-1                  # Modifiez si votre cluster est dans une autre région
-  EKS_CLUSTER_NAME: votre-cluster-eks    # METTEZ LE VRAI NOM DE VOTRE CLUSTER EKS
+  EKS_CLUSTER_NAME: alain-voting-app-eks    # METTEZ LE VRAI NOM DE VOTRE CLUSTER EKS
   DOCKER_IMAGE_NAME: mulema/vote         # Votre repo Docker Hub
 
 jobs:
