@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Récupération du code du dépôt
+      # 1. Récupération du code du dépôt reset
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
